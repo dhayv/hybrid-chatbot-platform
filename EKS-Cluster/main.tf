@@ -79,7 +79,7 @@ module "eks" {
 
   access_entries = {
     admin = {
-      principal_arn = 
+      principal_arn = ""
       policy_associations = {
         admin = {
           policy_arn  = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
