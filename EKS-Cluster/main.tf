@@ -1,79 +1,110 @@
 provider "aws" {
-  region = "us-east-1"
+  region  = var.aws_region
+  profile = var.aws_profile
 
-  
-}
-resource "aws_eks_cluster" "example" {
-  name = "example"
-
-  access_config {
-    authentication_mode = "API"
-  }
-
-  role_arn = aws_iam_role.cluster.arn
-  version  = "1.31"
-
-  vpc_config {
-    subnet_ids = [
-      aws_subnet.az1.id,
-      aws_subnet.az2.id,
-      aws_subnet.az3.id,
-    ]
-  }
-
-  # Ensure that IAM Role permissions are created before and deleted
-  # after EKS Cluster handling. Otherwise, EKS will not be able to
-  # properly delete EKS managed EC2 infrastructure such as Security Groups.
-  depends_on = [
-    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
-  ]
 }
 
-resource "aws_iam_role" "cluster" {
-  name = "eks-cluster-example"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "sts:AssumeRole",
-          "sts:TagSession"
-        ]
-        Effect = "Allow"
-        Principal = {
-          Service = "eks.amazonaws.com"
+module "vpc" {
+  source = "terraform-aws-modules/vpc/aws"
+
+  name = "aws-demo-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["us-east-1a", "us-east-1b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_nat_gateway      = true
+  enable_vpn_gateway      = false
+  single_nat_gateway      = true
+  map_public_ip_on_launch = true
+
+  public_subnet_tags = {
+    "kubernetes.io/role/elb" = "1"
+  }
+
+  private_subnet_tags = {
+    "kubernetes.io/role/internal-elb" = "1"
+  }
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
+
+
+}
+
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 21.1"
+
+  name               = "aws-eks-cluster"
+  kubernetes_version = "1.33"
+
+  addons = {
+    coredns = {}
+    eks-pod-identity-agent = {
+      before_compute = true
+    }
+    kube-proxy = {}
+    vpc-cni = {
+      before_compute = true
+    }
+  }
+
+
+  # Optional
+  endpoint_public_access = true
+
+  # Optional: Adds the current caller identity as an administrator via cluster access entry
+  enable_cluster_creator_admin_permissions = false
+
+  vpc_id                   = module.vpc.vpc_id
+  subnet_ids               = module.vpc.private_subnets
+  control_plane_subnet_ids = module.vpc.private_subnets
+
+  # EKS Managed Node Group(s)
+  eks_managed_node_groups = {
+    on_demand = {
+      # Starting on 1.30, AL2023 is the default AMI type for EKS managed node groups
+      ami_type       = "AL2023_x86_64_STANDARD"
+      instance_types = ["t3.small"]
+
+      min_size     = 2
+      max_size     = 3
+      desired_size = 2
+    }
+  }
+
+  access_entries = {
+    admin = {
+      principal_arn = var.admin
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster", namespaces = [] }
         }
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSClusterPolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.cluster.name
-}
-
-resource "aws_eks_node_group" "example" {
-  cluster_name    = aws_eks_cluster.example.name
-  node_group_name = "example"
-  node_role_arn   = aws_iam_role.example.arn
-  subnet_ids      = aws_subnet.example[*].id
-
-  scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 2
+      }
+    }
+    co-admin = {
+      principal_arn = var.admin2
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster", namespaces = [] }
+        }
+      }
+    }
   }
 
-  update_config {
-    max_unavailable = 1
-  }
 
-  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
-  # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
-  depends_on = [
-    aws_iam_role_policy_attachment.example-AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.example-AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.example-AmazonEC2ContainerRegistryReadOnly,
-  ]
+  tags = {
+    Environment = "dev"
+    Terraform   = "true"
+  }
 }
+
+output "cluster_sg_id" { value = module.eks.cluster_security_group_id }
+output "node_sg_id" { value = module.eks.node_security_group_id }
+output "eks_cluster" { value = module.eks.cluster_name }
