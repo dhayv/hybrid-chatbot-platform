@@ -1,30 +1,29 @@
 provider "azurerm" {
   features {}
 }
-resource "azurerm_resource_group" "example" {
-  name     = "kubernetes-cluster-multicloud-chatbotg"
-  location = "East US"
-}
 
-resource "azurerm_kubernetes_cluster" "example" {
-  name                = "example-aks1"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
-  dns_prefix          = "exampleaks1"
-  depends_on = [ azurerm_resource_group.example ]
 
-  default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_D2_v2"
-  }
+module "aks" {
+  source  = "Azure/aks/azurerm"
+  version = "10.2.0"
+  # insert the 2 required variables here
+  resource_group_name = "chatbotcluster-rg"
+  prefix              = "chatbot"
+  location            = "East US 2"
+  cluster_name        = "chatbotcluster"
+  agents_min_count    = 2
+  agents_max_count    = 3
+  agents_count        = 2
+  agents_pool_name    = "chatbotpool"
+  kubernetes_version  = "1.33.0"
+  oidc_issuer_enabled = true
 
-  identity {
-    type = "SystemAssigned"
-  }
-
+  # optionally, you can specify other variables here  
   tags = {
-    Environment = "Production"
+    Environment = "dev"
+    Terraform   = "true"
   }
 }
+
+
 
