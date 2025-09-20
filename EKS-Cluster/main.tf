@@ -108,3 +108,7 @@ module "eks" {
 output "cluster_sg_id" { value = module.eks.cluster_security_group_id }
 output "node_sg_id" { value = module.eks.node_security_group_id }
 output "eks_cluster" { value = module.eks.cluster_name }
+output "nat_gateway_public_ip" {
+  value = module.vpc.nat_public_ips[0]
+  description = "Public IP of the NAT Gateway"
+}
