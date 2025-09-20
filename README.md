@@ -40,16 +40,14 @@ By implementing DevSecOps practices and leveraging modern technologies like Kube
 
 ```
 git clone https://github.com/NotHarshhaa/DevOps-Projects/DevOps-Project-28/Chatbot-UI
-cd Jenkins-Server-TF
 ```
 
 2\. Before proceeding to next steps. Do the following things.
 
-i. Create a DynamoDB table named “Lock-Files”.  
-ii. Create a Key-Pair and download the PEM file.  
-iii. Create a user and save the access keys.  
-iv. Create an S3 bucket.  
-v. Download Terraform and AWS CLI.
+i. Ensure that you have a remote backend or use gitignore to ignore sensitive files 
+ii. Ensure your project repository is well organized and done
+v. Download/ensure you have the  Terraform, Kubernetes, Azure and AWS CLI installed.
+
 
 ```go
 #Terraform Installation Script
@@ -65,19 +63,33 @@ unzip awscliv2.zip
 sudo ./aws/install
 ```
 
-3\. Do some modifications to the backend.tf file such as changing the **bucket** name and **DynamoDB** table.
+# Azure CLI Installation
+Navigate to the link below to get install instructions per your operating system:
+```
+https://learn.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
+```
 
-![](<https://miro.medium.com/v2/resize:fit:700/1*ts7vnOdjjkq38TSgWD0hCA.png>)
+# Kubernetes Installation
+Navigate to the page below to ensure you have kubectl installed if you don't already on your local machine:
+```
+https://kubernetes.io/docs/tasks/tools/
+```
 
-4\. **Configure AWS CLI:** Run the below command, and add your access keys.
+
+
+3\. **Configure AWS CLI:** Run the below command, and add your access keys.
 
 ```go
 aws configure
 ```
 
-5\. You have to replace the Pem File name with one that is already created on AWS.
+4\. **Configure Azure CLI**: Use the command below to ensure that you are connected to a specific azure account via the CLI:
+```
+az login
+```
 
-6\. Initialize the backend by running the below command.
+
+5\. Initialize the backend for the EKS Cluster by running the below command.
 
 ```go
 terraform init
@@ -85,10 +97,10 @@ terraform init
 
 ![](<https://miro.medium.com/v2/resize:fit:700/1*lrsh4lLt0pkl_FUqNEmtkQ.png>)
 
-7\. Run the below command to get the blueprint of what kind of AWS services will be created.
+6\. Run the below command to get the blueprint of what kind of AWS services will be created.
 
 ```go
-terraform plan -var-file=variables.tfvars
+terraform plan 
 ```
 
 ![](<https://miro.medium.com/v2/resize:fit:700/1*cWnWUtSM-7Ghf3up4_aVBQ.png>)
@@ -101,157 +113,11 @@ terraform apply -var-file=variables.tfvars --auto-approve
 
 ![](<https://miro.medium.com/v2/resize:fit:700/1*_dJYuqhrheOXp1kYlX_oyg.png>)
 
-9\. Upon success,this will create an ec2 server with name “Jenkins-server”.
 
-![](<https://miro.medium.com/v2/resize:fit:700/1*o1ukLPW6LDdyINIjmiZ_Qg.png>)
 
-10\. Connect to it with SSH.
 
-![](<https://miro.medium.com/v2/resize:fit:700/1*wqenS9FQrkMp4rwQeIbCoQ.png>)
 
-**Step:2 :- Configure Jenkins server.**
-
-1. Access jenkins on port 8080 of ec2 public ip.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*qkSouA0m8wPssyvu96rSyQ.png>)
-
-2\. Now, run the below command to get the administrator password and paste it on your Jenkins.
-
-```go
-sudo cat /var/lib/jenkins/secrets/initialAdminPassword
-```
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*CcsGMffUT3qSMwCeia6QTQ.png>)
-
-\\
-
-3\. Install suggested plugins.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*pG1vN9uSjicpWNCNp_mSlA.png>)
-
-4\. Create user help us customize username and password of Jenkins.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*sVt0BvCQ4P8M7AbwF03lfw.png>)
-
-5\. Save and Continue all the rest.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*LUVR7nRSBFItWW0InF-WJw.png>)
-
-6\. Access SonarQube on port 9000 of Same Jenkins server.
-
-```go
-Username: admin
-Password: admin
-```
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*PKeiUg_xlPjXzh7TvVLXxw.png>)
-
-7\. Customize the password.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*s98Lzd9k9Jrt4LX_watlEg.png>)
-
-8\. Navigate to Security → Users →Administrator.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*kEMioYIWvnwnU0IYQLne1w.png>)
-
-9\. Click on Tokens.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*4EqtasaEgqAR5AsPCQfZng.png>)
-
-10\. Create one and save it.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*pGMqIxnXNX0K8A4BXqBhQQ.png>)
-
-11\. Now go to Configuration → Webhooks →Create
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*MdKRzDovGiD7l62vArpN-A.png>)
-
-12\. Then configure webhook and create.
-
-```go
-Name: Jenkins
-URL : http://<public_ip>:8080/sonarqube-webhook/
-```
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*5C6ISpNvZlo5UtIV-wqnsg.png>)
-
-13\. Now in Jenkins Navigate to Manage Jenkins → Plugins →Available Plugins and install the following.
-
-```go
-1 → Eclipse Temurin Installer
-
-2 → SonarQube Scanner
-
-3 → NodeJs Plugin
-
-4 → Docker
-
-5 → Docker commons
-
-6 → Docker pipeline
-
-7 → Docker API
-
-8 → Docker Build step
-
-9 → Owasp Dependency Check
-
-10 → Kubernetes
-
-11 → Kubernetes CLI
-
-12 → Kubernetes Client API
-
-13 → Kubernetes Pipeline DevOps steps
-
-10 → AWS Credentials
-
-11 → Pipeline: AWS Steps
-```
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*Xy-5yDv5sAAGIycYrmr5BQ.png>)
-
-14\. Restart Jenkins after they got installed.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*0t36RmSpki52UW8RdcVuCw.png>)
-
-14\. Go to Manage Jenkins → Tools → Install JDK(17) and NodeJs(19)→ Click on Apply and Save.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*3FEhZq1MdvM8-xOcdylqRA.png>)
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*A9W8okCbkWK8AOpLGkeMhQ.png>)
-
-15\. Similarly install DP-check, Sonar-Scanner and Docker.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*QuwYxeBhrqD3ARH0AXuG2A.png>)
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*EQQ8MTGZB4bjJ5LRvKVNkg.png>)
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*AYs2P3fDcpB5jD0F--ElbQ.png>)
-
-16\. Go to Jenkins Dashboard → Manage Jenkins → Credentials. Add
-
-Sonar-token as secret text.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*acrmIpPIfkFRmXvbGPTTWg.png>)
-
-Docker credentials.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*wjeiXyzlQwDiq_w4_E3egA.png>)
-
-GitHub Credentials.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*NP7s2NxZs7lJ5MJ1AaZvvg.png>)
-
-AWS access keys as AWS Credentials.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*Py7A-_2MTbneLbV87qBfMw.png>)
-
-17\. Manage Jenkins → Tools → SonarQube Scanner. Then add sonar-server and created sonar-token.
-
-![](<https://miro.medium.com/v2/resize:fit:700/1*sER7niC7VvX0noF14i-5bQ.png>)
-
-**Step :3 :- Create Jenkins Pipeline**
+**Step :2 :- Create Jenkins Pipeline**
 
 1. Up to this Let’s create a pipeline and see if anything gone wrong.  
     Click on “New Item” and give it a name selecting pipeline and then ok.
@@ -512,7 +378,19 @@ pipeline{
 }
 ```
 
-**Step: 6 :- Clean Up**
+**Step: 6 :- Virtual Network Connectivity Between Clusters**
+FROM AWS:
+
+FROM AZURE:
+- I will create and attach a NAT Gateway to my nodes' subnets:
+![alt text](image.png)
+![alt text](image-1.png)
+
+
+
+
+
+**Step: 7 :- Clean Up**
 
 1. This is so simple Firstly Delete the EKS Cluster By selecting destroy as the build option.
 
