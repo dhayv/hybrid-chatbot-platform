@@ -1,22 +1,54 @@
-# DevSecOps: OpenAI Chatbot UI Deployment in EKS and AKS Docker, Kubernetes, and Terraform
+Hybrid Chatbot Platform – Multi-Cloud AI Architecture  
+
+**AWS EKS | Azure AKS  | Kubernetes | Docker | Terraform |Next.js | OpenAI | CloudFront | Platform Architecture**
 
 ![text](https://imgur.com/MdxoqmL.png)
 
-## **Introduction:**
+This repository delivers a **multi-cloud AI chatbot platform** that merges **DevSecOps principles** with **modern cloud-native architecture**.  
+Co-engineered by **[Dennis]([https://github.com/NotHarshhaa](https://github.com/dteimuno))** (Azure / AKS) and **[David](https://github.com/dhayv)** (AWS / CloudFront / EKS), the system unifies containerized workloads, Terraform-based infrastructure, and cross-cloud failover through AWS CloudFront.
 
-In today’s digital world, user engagement is key to the success of any application. Implementing DevSecOps practices is essential for ensuring security, reliability, and efficient deployment processes. In this project, we aim to implement DevSecOps for deploying an OpenAI Chatbot UI. We will use Kubernetes (EKS) for container orchestration, Jenkins for Continuous Integration/Continuous Deployment (CI/CD), and Docker for containerization.
+## 🧭 System Overview  
 
-**What is ChatBOT?**
+| Plane | Responsibility | Technology |
+|-------|----------------|-------------|
+| **Workload Plane** | Chatbot runtime (FastAPI + OpenAI) served through a Next.js 13 front-end | `Chatbot-UI/` |
+| **Control Plane** | Declarative provisioning of EKS and AKS clusters via Terraform | `EKS-Cluster/`, `AKS-Cluster/` |
+| **Edge Plane** | Global routing, caching, and failover via **AWS CloudFront** | `CloudFront/` |
 
-ChatBOT is an AI-powered conversational agent trained on extensive human conversation data. It utilizes natural language processing techniques to understand user queries and provide human-like responses. By simulating natural language interactions, ChatBOT enhances user engagement and provides personalized assistance to users.
+Each layer is isolated, reproducible, and managed declaratively.
 
-**Why ChatBOT?**
+## ⚙️ Core Architecture  
 
-**1\. Personalized Interactions:** ChatBOT enables personalized interactions by understanding user queries and responding in a conversational manner, fostering engagement and satisfaction.  
-  
-**2\. 24/7 Availability:** Unlike human agents, ChatBOT is available 24/7, ensuring instant responses to user queries and delivering a seamless user experience round the clock.  
-  
-**3\. Scalability:** With ChatBOT deployed in our application, we can efficiently handle a large volume of user interactions, ensuring scalability as our user base expands.
+- **Frontend Application** – Next.js 13 + TypeScript UI integrating OpenAI GPT with 15-language support and streaming responses.  
+- **Infrastructure-as-Code** – Terraform modules provisioning isolated VPCs, NAT Gateways, and IAM/RBAC policies for both clouds.  
+- **Kubernetes Deployment** – Unified manifests for EKS and AKS, including Services, Ingress, and health endpoints.  
+- **Hybrid Connectivity** – Secure VPC Peering + VPN for cross-cluster communication.  
+- **Edge Layer** – AWS CloudFront multi-origin routing providing active-passive failover and global content distribution.
+
+
+---
+
+## 🌐 CloudFront Multi-Cloud Failover (AWS ⇢ Azure)
+
+We implemented an **Amazon CloudFront distribution** that fronts both clusters and provides **automatic failover**:
+
+**Primary origin:** AWS EKS Service (public ELB DNS)  
+**Secondary origin:** Azure AKS Service (public IP with DNS label `*.cloudapp.azure.com`)  
+**Failover logic:** CloudFront serves EKS by default and automatically routes to AKS on **5xx** or failed health checks (`/healthz` returns 200).  
+**Viewer endpoint:** default `*.cloudfront.net` domain — no custom DNS required.  
+**Protocol to origin:** HTTP on port 80 (services listen on port 80).  
+
+> Purpose: A single, resilient entry point with cross-cloud availability using existing public load balancers — no Route 53, no extra DNS cost.
+
+**How it works**
+
+1. Client hits `https://<cloudfront-id>.cloudfront.net`.  
+2. CloudFront checks `/healthz` on the primary (EKS).  
+   - Healthy → serves EKS.  
+   - Unhealthy → fails over automatically to AKS.  
+3. When EKS recovers, traffic resumes to EKS.
+
+A validated failover path between AWS EKS (primary) and Azure AKS (secondary) through CloudFront — proving true multi-cloud high availability with zero DNS complexity.
 
 **How We’re Deploying ChatBOT?**
 
@@ -24,10 +56,6 @@ ChatBOT is an AI-powered conversational agent trained on extensive human convers
 
 **2\. Orchestration with Kubernetes (EKS):** Kubernetes provides powerful orchestration capabilities for managing containerized applications at scale. We’re leveraging Amazon Elastic Kubernetes Service (EKS) to deploy and manage our Docker containers efficiently. EKS automates container deployment, scaling, and management, ensuring high availability and resilience.
 
-
-**3\. DevSecOps Practices:** Throughout the deployment pipeline, we’re integrating security practices into every stage to ensure the security of our ChatBOT application. This includes vulnerability scanning, code analysis, and security testing to identify and mitigate potential security threats early in the development lifecycle.
-
-By implementing DevSecOps practices and leveraging modern technologies like Kubernetes and Docker,  we’re ensuring the secure, scalable, and efficient deployment of ChatBOT, enhancing user engagement and satisfaction.
 
 # **STEPS:**
 **Step: 1 :- Provisioning AKS cluster**
@@ -83,46 +111,96 @@ kubectl get svc
 
 
 
-**Step: 6 :- Configuring Multi-Cloud Caching in AWS Cloudfront:
-- We used the modified AWS Cloudfront to create two origins: a main and a backup and were able to prove caching and backup routing for two websites even from different cloud platforms based on the updated AWS CloudFront website. Instead of expensive complex DNS routing setup, we could use AWS Cloudfront Multitenant routing to point to two different websites both representing the same software for disaster recovery and disaster recovery planning.
+**Step: 6 :- Configuring Multi-Cloud Caching in AWS Cloudfront:**
 
-What did we prove?
-We proved that you can serve multicluster applications that can be cache and do not require livestreaming using CloudFront as a medium for disaster recovery and failover, as well as possibly splitiing traffic
+This section validates true cloud-agnostic HA using only managed services, no DNS or third-party routing tools.
 
+### CloudFront → Create Distribution
 
+#### Origins
+- **eks-primary**
+  - **Origin domain:** `<your-eks-elb>.elb.amazonaws.com`
+  - **Protocol to origin:** `HTTP only`
+  - **Port:** `80`
+- **aks-secondary**
+  - **Origin domain:** `myaks-<region>.cloudapp.azure.com`
+  - **Protocol to origin:** `HTTP only`
+  - **Port:** `80`
 
+#### Origin Group (Failover)
+- **Primary:** `eks-primary`
+- **Secondary:** `aks-secondary`
+- **Failover criteria:** `HTTP 500–599`
+- **Health check path:** `/healthz`
 
+#### Default Behavior
+- **Viewer protocol policy:** `Redirect HTTP to HTTPS`
+- **Allowed methods:** `GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE` (for APIs)
+- **Cache policy:** `Managed – CachingDisabled`
+- **Origin request policy:** `Managed – AllViewer`
 
-**Step: 7 :- Clean Up**
+#### Domain / Certificate
+- Leave **Custom domain** empty
+- Use default `*.cloudfront.net` certificate
 
-1. This is so simple Firstly Delete the EKS and AKS-Cluster navigating to their respective directories and then running the command:.
+> **Notes**
+> - In Azure, assign a **DNS label** to the Service public IP (gives `*.cloudapp.azure.com`).
+> - Ensure neither EKS nor AKS Services block CloudFront during setup  
+>   (avoid restrictive `loadBalancerSourceRanges`).
+> - For security, use **AWS WAF** at CloudFront instead of IP allow-listing.
 
+---
 
+## ✅ Verifying
 
-```go
+### Direct Origins (Bypass CloudFront)
+```bash
+curl -I http://<your-eks-elb>.elb.amazonaws.com/healthz
+curl -I http://myaks-<region>.cloudapp.azure.com/healthz
+# Expect: HTTP/1.1 200 OK from both
+```
+
+ 
+**Step 7 Verify failover** 
+
+`curl` tests (Scale EKS → 0) | CloudFront |
+
+**Step 8 Clean up resources** 
+
+terraform destroy` for each cluster
+
+```bash
 terraform destroy -auto-approve -var-file=variables.tfvars
 ```
 
 ---
-Project originally sourced from:
 
-## 🛠️ Author & Community  
+## 🧱 Tech Stack  
 
-This project is crafted by **[Harshhaa](https://github.com/NotHarshhaa)** 💡.  
-I’d love to hear your feedback! Feel free to share your thoughts.  
-
-📧 **Connect with me:**
-
-- **GitHub**: [@NotHarshhaa](https://github.com/NotHarshhaa)
-- **Blog**: [ProDevOpsGuy](https://blog.prodevopsguy.xyz)  
-- **Telegram Community**: [Join Here](https://t.me/prodevopsguy)  
+**Frontend:** Next.js 13, React 18, TypeScript, Tailwind CSS, OpenAI API  
+**Infrastructure:** Terraform, Docker, Kubernetes (EKS / AKS)  
+**Edge & Security:** AWS IAM, Azure RBAC, VPC, NAT Gateway, CloudFront  
 
 ---
 
-## ⭐ Support the Project  
+## 👥 Contributors  
 
-If you found this helpful, consider **starring** ⭐ the repository and sharing it with your network! 🚀  
+- **David Hayv** — AWS EKS, CloudFront, Terraform, Cross-Cloud Architecture  
+- **Dennis Teimuno** — Azure AKS, RBAC, Networking, Terraform Modules  
 
-### 📢 Stay Connected  
+---
 
-![Follow Me](https://imgur.com/2j7GSPs.png)
+## 📚 Acknowledgment  
+
+Forked and extended from [@NotHarshhaa](https://github.com/NotHarshhaa).  
+This version adds **multi-cloud deployment, CloudFront failover, and security enhancements** while retaining the educational foundation of the original.
+
+---
+
+## 📌 Takeaway  
+
+This project proves that a two-engineer team can design and validate **enterprise-grade multi-cloud resilience** using standard DevSecOps tooling —  
+no vendor lock-in, no proprietary gateways.  
+
+**Governed · Scalable · Declarative · Cross-Cloud by Design.**
+
