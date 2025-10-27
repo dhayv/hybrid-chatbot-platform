@@ -10,5 +10,4 @@ spec:
     port: 80                 # Expose port 80
     targetPort: 3000
   type: LoadBalancer
-  loadBalancerSourceRanges:
-  - 44.213.41.229/32
+
