@@ -17,7 +17,19 @@ spec:
       - name: chatbot
         image: sreedhar8897/chatbot:latest
         ports:
-        - containerPort: 3000   # Use port 3000
+        - containerPort: 3000
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
 
 
 
